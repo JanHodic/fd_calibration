@@ -24,6 +24,9 @@ def main() -> None:
     parser.add_argument("--n", type=int, default=3000, help="Počet vzorků")
     parser.add_argument("--k", type=int, default=6, help="Počet tříd")
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--clf", default="rf",
+                    choices=["rf", "gb", "svm", "logreg", "xgb"],
+                    help="Klasifikátor: rf|gb|svm|logreg|xgb")
     args = parser.parse_args()
 
     print(f"Generuji {args.n} syntetických vzorků pro {args.k} tříd...")

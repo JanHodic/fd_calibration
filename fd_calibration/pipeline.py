@@ -36,10 +36,7 @@ from .metrics import (
 # ---------------------------------------------------------------------------
 
 class TemperatureScalingCalibrator:
-    """Temperature scaling pro vícetřídní klasifikaci.
-
-    Předpokládá vstup ve formě logitů (před softmaxem).
-    """
+    """Temperature scaling pro vícetřídní klasifikaci (vstup: logity)."""
 
     def __init__(self) -> None:
         self.T: float = 1.0
@@ -67,7 +64,7 @@ class TemperatureScalingCalibrator:
 
 
 class PlattOvRCalibrator:
-    """Platt scaling aplikovaný v one-vs-rest schématu."""
+    """Platt scaling v one-vs-rest schématu."""
 
     def __init__(self) -> None:
         self.classes_: np.ndarray | None = None
@@ -145,19 +142,26 @@ def build_classifier(name: str, random_state: int = 42) -> Any:
         )
     if name == "svm":
         return SVC(probability=True, random_state=random_state)
+    if name == "logreg":
+        return LogisticRegression(max_iter=1000, random_state=random_state)
+    if name == "xgb":
+        try:
+            from xgboost import XGBClassifier
+        except ImportError as e:
+            raise RuntimeError("pip install xgboost") from e
+        return XGBClassifier(
+            n_estimators=200, random_state=random_state, n_jobs=-1,
+            eval_metric="mlogloss", verbosity=0,
+        )
     raise ValueError(f"Neznámý klasifikátor: {name}")
 
 
 def get_scores(clf: Any, X: np.ndarray) -> np.ndarray:
-    """Získej skóre/pravděpodobnosti z klasifikátoru.
-
-    Preferuje decision_function (pro AUC), jinak predict_proba.
-    """
+    """Získej skóre/pravděpodobnosti z klasifikátoru, vždy tvar (N, K)."""
     if hasattr(clf, "decision_function"):
         try:
             s = clf.decision_function(X)
             if s.ndim == 1:
-                # Binární – konvertuj na 2D
                 s = np.column_stack([-s, s])
             return s
         except Exception:
@@ -193,17 +197,11 @@ def run_experiment(
     random_state: int = 42,
     verbose: bool = True,
 ) -> list[ExperimentResult]:
-    """Spusť experiment: train klasifikátor + porovnej kalibrační metody.
-
-    Vrací list výsledků pro každou kalibrační metodu (FD, Platt OvR,
-    Isotonic OvR, Temperature scaling, žádná kalibrace).
-    """
-    # Split: train + (val + test)
+    """Train klasifikátor + porovnej kalibrační metody."""
     X_tr, X_rest, y_tr, y_rest = train_test_split(
         X, y, test_size=test_size + val_size,
         stratify=y, random_state=random_state,
     )
-    # Z X_rest oddělíme val a test
     val_frac = val_size / (test_size + val_size)
     X_val, X_te, y_val, y_te = train_test_split(
         X_rest, y_rest, test_size=1 - val_frac,
@@ -213,21 +211,17 @@ def run_experiment(
     if verbose:
         print(f"Train: {len(y_tr)}, Val: {len(y_val)}, Test: {len(y_te)}")
 
-    # Standardizace
     scaler = StandardScaler()
     X_tr = scaler.fit_transform(X_tr)
     X_val = scaler.transform(X_val)
     X_te = scaler.transform(X_te)
 
-    # Trénink klasifikátoru
     clf = build_classifier(classifier_name, random_state=random_state)
     clf.fit(X_tr, y_tr)
 
-    # Skóre na val a test
     s_val = get_scores(clf, X_val)
     s_te = get_scores(clf, X_te)
 
-    # Pro temperature scaling potřebujeme logity – aproximujeme přes log(proba)
     if hasattr(clf, "predict_proba"):
         p_val = np.clip(clf.predict_proba(X_val), 1e-12, 1.0)
         p_te = np.clip(clf.predict_proba(X_te), 1e-12, 1.0)
@@ -240,76 +234,44 @@ def run_experiment(
     classes = np.unique(y)
     results: list[ExperimentResult] = []
 
-    # 1. Žádná kalibrace (raw probabilities)
+    def make(method: str, probs: np.ndarray, preds: np.ndarray, fd_summary: str = "") -> ExperimentResult:
+        return ExperimentResult(
+            classifier_name=classifier_name,
+            method_name=method,
+            accuracy=accuracy(preds, y_te),
+            balanced_accuracy=balanced_accuracy(preds, y_te, classes),
+            ece=expected_calibration_error(probs, y_te),
+            brier=brier_score_multiclass(probs, y_te, len(classes)),
+            ovr_auc=ovr_auc(s_te, y_te, classes),
+            fd_summary=fd_summary,
+        )
+
+    # 1. Bez kalibrace
     if hasattr(clf, "predict_proba"):
         p_raw = clf.predict_proba(X_te)
-        y_pred = clf.predict(X_te)
-        results.append(ExperimentResult(
-            classifier_name=classifier_name,
-            method_name="No calibration",
-            accuracy=accuracy(y_pred, y_te),
-            balanced_accuracy=balanced_accuracy(y_pred, y_te, classes),
-            ece=expected_calibration_error(p_raw, y_te),
-            brier=brier_score_multiclass(p_raw, y_te, len(classes)),
-            ovr_auc=ovr_auc(s_te, y_te, classes),
-        ))
+        results.append(make("No calibration", p_raw, clf.predict(X_te)))
 
-    # 2. FD kalibrace
+    # 2. FD
     fd = FDMulticlassCalibrator().fit(s_val, y_val, classes=classes)
     p_fd = fd.predict_proba(s_te)
-    y_pred_fd = classes[np.argmax(p_fd, axis=1)]
-    results.append(ExperimentResult(
-        classifier_name=classifier_name,
-        method_name="FD (degenerated levels)",
-        accuracy=accuracy(y_pred_fd, y_te),
-        balanced_accuracy=balanced_accuracy(y_pred_fd, y_te, classes),
-        ece=expected_calibration_error(p_fd, y_te),
-        brier=brier_score_multiclass(p_fd, y_te, len(classes)),
-        ovr_auc=ovr_auc(s_te, y_te, classes),
-        fd_summary=fd.summary(),
-    ))
+    results.append(make("FD (degenerated levels)", p_fd,
+                        classes[np.argmax(p_fd, axis=1)], fd.summary()))
 
     # 3. Platt OvR
     platt = PlattOvRCalibrator().fit(s_val, y_val)
     p_platt = platt.predict_proba(s_te)
-    y_pred_p = classes[np.argmax(p_platt, axis=1)]
-    results.append(ExperimentResult(
-        classifier_name=classifier_name,
-        method_name="Platt OvR",
-        accuracy=accuracy(y_pred_p, y_te),
-        balanced_accuracy=balanced_accuracy(y_pred_p, y_te, classes),
-        ece=expected_calibration_error(p_platt, y_te),
-        brier=brier_score_multiclass(p_platt, y_te, len(classes)),
-        ovr_auc=ovr_auc(s_te, y_te, classes),
-    ))
+    results.append(make("Platt OvR", p_platt, classes[np.argmax(p_platt, axis=1)]))
 
     # 4. Isotonic OvR
     iso = IsotonicOvRCalibrator().fit(s_val, y_val)
     p_iso = iso.predict_proba(s_te)
-    y_pred_i = classes[np.argmax(p_iso, axis=1)]
-    results.append(ExperimentResult(
-        classifier_name=classifier_name,
-        method_name="Isotonic OvR",
-        accuracy=accuracy(y_pred_i, y_te),
-        balanced_accuracy=balanced_accuracy(y_pred_i, y_te, classes),
-        ece=expected_calibration_error(p_iso, y_te),
-        brier=brier_score_multiclass(p_iso, y_te, len(classes)),
-        ovr_auc=ovr_auc(s_te, y_te, classes),
-    ))
+    results.append(make("Isotonic OvR", p_iso, classes[np.argmax(p_iso, axis=1)]))
 
     # 5. Temperature scaling
     ts = TemperatureScalingCalibrator().fit(logits_val, y_val)
     p_ts = ts.predict_proba(logits_te)
-    y_pred_ts = classes[np.argmax(p_ts, axis=1)]
-    results.append(ExperimentResult(
-        classifier_name=classifier_name,
-        method_name=f"Temperature scaling (T={ts.T:.3f})",
-        accuracy=accuracy(y_pred_ts, y_te),
-        balanced_accuracy=balanced_accuracy(y_pred_ts, y_te, classes),
-        ece=expected_calibration_error(p_ts, y_te),
-        brier=brier_score_multiclass(p_ts, y_te, len(classes)),
-        ovr_auc=ovr_auc(s_te, y_te, classes),
-    ))
+    results.append(make(f"Temperature scaling (T={ts.T:.3f})", p_ts,
+                        classes[np.argmax(p_ts, axis=1)]))
 
     if verbose:
         print_results(results, class_names)
@@ -329,7 +291,6 @@ def print_results(
             f"{r.method_name:<35s} {r.accuracy:>7.4f} {r.balanced_accuracy:>7.4f} "
             f"{r.ece:>7.4f} {r.brier:>7.4f}"
         )
-    # Detail pro FD
     for r in results:
         if r.fd_summary:
             print()
