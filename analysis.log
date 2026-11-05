@@ -1,0 +1,174 @@
+Načteno 379735 řádků, metody: ['fd', 'isotonic', 'none', 'platt', 'temperature']
+
+=== FD vs baseline (všechny konfigurace) ===
+target    baseline       metric     n            p    median    ci_low   ci_high  win_rate
+    fd        none     accuracy 76095 0.000000e+00  0.001333  0.001000  0.001333  0.537433
+    fd        none bal_accuracy 76095 1.559115e-24  0.000019  0.000000  0.000089  0.501452
+    fd        none          ece 76095 0.000000e+00  0.039615  0.038866  0.040352  0.789093
+    fd        none        brier 76095 0.000000e+00  0.014359  0.014003  0.014729  0.756383
+    fd       platt     accuracy 75725 0.000000e+00  0.000667  0.000667  0.000667  0.513965
+    fd       platt bal_accuracy 75725 0.000000e+00  0.006502  0.006381  0.006623  0.709739
+    fd       platt          ece 75725 0.000000e+00  0.033690  0.033392  0.033956  0.889865
+    fd       platt        brier 75725 0.000000e+00  0.013409  0.013276  0.013539  0.950069
+    fd    isotonic     accuracy 75725 0.000000e+00  0.000667  0.000333  0.000667  0.509990
+    fd    isotonic bal_accuracy 75725 7.186675e-44 -0.000064 -0.000160  0.000000  0.483460
+    fd    isotonic          ece 75725 2.819891e-58  0.000148  0.000024  0.000261  0.504391
+    fd    isotonic        brier 75725 0.000000e+00  0.001919  0.001881  0.001958  0.695583
+    fd temperature     accuracy 76095 0.000000e+00  0.001333  0.001000  0.001333  0.537433
+    fd temperature bal_accuracy 76095 1.559115e-24  0.000019  0.000000  0.000089  0.501452
+    fd temperature          ece 76095 0.000000e+00 -0.002464 -0.002561 -0.002356  0.418713
+    fd temperature        brier 76095 0.000000e+00  0.000150  0.000119  0.000184  0.517498
+
+=== profile = uniform ===
+   baseline       metric    median  win_rate             p
+       none     accuracy  0.000000  0.436076  4.222701e-03
+       none bal_accuracy  0.000000  0.483810  2.183629e-04
+       none          ece  0.053676  0.805638  0.000000e+00
+       none        brier  0.015420  0.758781  0.000000e+00
+      platt     accuracy  0.000000  0.454019  6.176599e-34
+      platt bal_accuracy  0.000138  0.519162  2.905054e-85
+      platt          ece  0.027817  0.846933  0.000000e+00
+      platt        brier  0.012590  0.956229  0.000000e+00
+   isotonic     accuracy  0.001667  0.557676  0.000000e+00
+   isotonic bal_accuracy  0.001417  0.588648 2.906825e-267
+   isotonic          ece  0.003183  0.583695  0.000000e+00
+   isotonic        brier  0.002738  0.777410  0.000000e+00
+temperature     accuracy  0.000000  0.436076  4.222701e-03
+temperature bal_accuracy  0.000000  0.483810  2.183629e-04
+temperature          ece -0.002782  0.407010 6.628220e-204
+temperature        brier -0.000800  0.348724  0.000000e+00
+
+=== profile = mild ===
+   baseline       metric    median  win_rate             p
+       none     accuracy  0.002000  0.577096  0.000000e+00
+       none bal_accuracy  0.000000  0.490517  2.229017e-05
+       none          ece  0.034133  0.779678  0.000000e+00
+       none        brier  0.012347  0.747375  0.000000e+00
+      platt     accuracy  0.000667  0.526796 5.330309e-241
+      platt bal_accuracy  0.009572  0.784430  0.000000e+00
+      platt          ece  0.034428  0.914968  0.000000e+00
+      platt        brier  0.012241  0.950796  0.000000e+00
+   isotonic     accuracy  0.000000  0.481849  7.032456e-68
+   isotonic bal_accuracy -0.002207  0.420774 2.582413e-171
+   isotonic          ece -0.000561  0.479957  5.789590e-02
+   isotonic        brier  0.001397  0.659699  0.000000e+00
+temperature     accuracy  0.002000  0.577096  0.000000e+00
+temperature bal_accuracy  0.000000  0.490517  2.229017e-05
+temperature          ece -0.001410  0.448561  3.495302e-28
+temperature        brier  0.001454  0.605758  0.000000e+00
+
+=== profile = extreme ===
+   baseline       metric    median  win_rate             p
+       none     accuracy  0.003333  0.603165  0.000000e+00
+       none bal_accuracy  0.001820  0.528961  1.912315e-72
+       none          ece  0.036442  0.781010  0.000000e+00
+       none        brier  0.015432  0.762097  0.000000e+00
+      platt     accuracy  0.001667  0.562593  0.000000e+00
+      platt bal_accuracy  0.015248  0.834280  0.000000e+00
+      platt          ece  0.038279  0.910582  0.000000e+00
+      platt        brier  0.015506  0.943260  0.000000e+00
+   isotonic     accuracy  0.000000  0.487207  1.214383e-80
+   isotonic bal_accuracy -0.002122  0.433746 6.369077e-124
+   isotonic          ece -0.001842  0.446673  4.654329e-33
+   isotonic        brier  0.001541  0.645491  0.000000e+00
+temperature     accuracy  0.003333  0.603165  0.000000e+00
+temperature bal_accuracy  0.001820  0.528961  1.912315e-72
+temperature          ece -0.003228  0.403546 4.496757e-163
+temperature        brier  0.001771  0.606940  0.000000e+00
+
+=== classifier = rf ===
+   baseline       metric    median  win_rate             p
+       none     accuracy  0.011667  0.714323  0.000000e+00
+       none bal_accuracy  0.035497  0.797438  0.000000e+00
+       none          ece  0.078618  0.938896  0.000000e+00
+       none        brier  0.042552  0.948752  0.000000e+00
+      platt     accuracy  0.006667  0.709805  0.000000e+00
+      platt bal_accuracy  0.026632  0.847342  0.000000e+00
+      platt          ece  0.050031  0.932651  0.000000e+00
+      platt        brier  0.022293  0.946121  0.000000e+00
+   isotonic     accuracy  0.000000  0.441598  1.729726e-01
+   isotonic bal_accuracy -0.001570  0.430835  1.124966e-84
+   isotonic          ece -0.006213  0.352063 1.374347e-281
+   isotonic        brier -0.000558  0.451832  1.142054e-13
+temperature     accuracy  0.011667  0.714323  0.000000e+00
+temperature bal_accuracy  0.035497  0.797438  0.000000e+00
+temperature          ece -0.002553  0.436925  2.071602e-74
+temperature        brier  0.007407  0.676544  0.000000e+00
+
+=== classifier = gb ===
+   baseline       metric    median  win_rate             p
+       none     accuracy  0.002333  0.598489  0.000000e+00
+       none bal_accuracy  0.000135  0.506373  3.689739e-01
+       none          ece  0.063981  0.890867  0.000000e+00
+       none        brier  0.023185  0.893430  0.000000e+00
+      platt     accuracy  0.000000  0.497392  2.114210e-54
+      platt bal_accuracy  0.005412  0.715814  0.000000e+00
+      platt          ece  0.026719  0.843249  0.000000e+00
+      platt        brier  0.012468  0.951337  0.000000e+00
+   isotonic     accuracy  0.001333  0.557478 4.162339e-213
+   isotonic bal_accuracy  0.000378  0.517795  8.667612e-08
+   isotonic          ece  0.002603  0.581182 2.011119e-200
+   isotonic        brier  0.003388  0.828722  0.000000e+00
+temperature     accuracy  0.002333  0.598489  0.000000e+00
+temperature bal_accuracy  0.000135  0.506373  3.689739e-01
+temperature          ece -0.000474  0.482654  5.976341e-01
+temperature        brier  0.001887  0.684363  0.000000e+00
+
+=== classifier = svm ===
+   baseline       metric    median  win_rate             p
+       none     accuracy  0.000000  0.388239  1.233347e-42
+       none bal_accuracy -0.000917  0.439947  6.392244e-80
+       none          ece -0.002092  0.434100  1.490440e-12
+       none        brier -0.001034  0.343101 3.730397e-185
+      platt     accuracy  0.000000  0.483394  3.579552e-68
+      platt bal_accuracy  0.006245  0.706108  0.000000e+00
+      platt          ece  0.032090  0.911918  0.000000e+00
+      platt        brier  0.009425  0.938131  0.000000e+00
+   isotonic     accuracy  0.000667  0.516144 1.403616e-103
+   isotonic bal_accuracy -0.000315  0.474480  1.239714e-22
+   isotonic          ece -0.001224  0.464972  5.905010e-03
+   isotonic        brier  0.001564  0.675404  0.000000e+00
+temperature     accuracy  0.000000  0.388239  1.233347e-42
+temperature bal_accuracy -0.000917  0.439947  6.392244e-80
+temperature          ece -0.004243  0.360118 4.058936e-252
+temperature        brier -0.001499  0.265440  0.000000e+00
+
+=== classifier = logreg ===
+   baseline       metric    median  win_rate             p
+       none     accuracy  0.000000  0.486794  3.273934e-70
+       none bal_accuracy -0.004289  0.337516  0.000000e+00
+       none          ece  0.009552  0.702497  0.000000e+00
+       none        brier  0.001965  0.625361  0.000000e+00
+      platt     accuracy  0.000000  0.414196  1.091757e-06
+      platt bal_accuracy  0.002927  0.633278  0.000000e+00
+      platt          ece  0.031501  0.895411  0.000000e+00
+      platt        brier  0.009749  0.943414  0.000000e+00
+   isotonic     accuracy  0.000667  0.515087 2.745811e-117
+   isotonic bal_accuracy  0.000053  0.503599  4.343995e-01
+   isotonic          ece  0.000516  0.518323  2.097229e-32
+   isotonic        brier  0.002089  0.729218  0.000000e+00
+temperature     accuracy  0.000000  0.486794  3.273934e-70
+temperature bal_accuracy -0.004289  0.337516  0.000000e+00
+temperature          ece -0.002310  0.409461  2.738961e-90
+temperature        brier -0.000470  0.431143  5.386668e-05
+
+=== classifier = xgb ===
+   baseline       metric    median  win_rate             p
+       none     accuracy  0.000000  0.499310  8.388981e-52
+       none bal_accuracy -0.001725  0.425961 1.924888e-142
+       none          ece  0.107791  0.979165  0.000000e+00
+       none        brier  0.041114  0.971344  0.000000e+00
+      platt     accuracy  0.000000  0.465038  1.507163e-11
+      platt bal_accuracy  0.003481  0.646154  0.000000e+00
+      platt          ece  0.033062  0.866094  0.000000e+00
+      platt        brier  0.019168  0.971344  0.000000e+00
+   isotonic     accuracy  0.000667  0.519643 4.015511e-106
+   isotonic bal_accuracy  0.000000  0.490591  5.972575e-08
+   isotonic          ece  0.003397  0.605414 1.718532e-285
+   isotonic        brier  0.002714  0.792737  0.000000e+00
+temperature     accuracy  0.000000  0.499310  8.388981e-52
+temperature bal_accuracy -0.001725  0.425961 1.924888e-142
+temperature          ece -0.002665  0.404404  3.267618e-91
+temperature        brier  0.000198  0.530003  5.296511e-69
+
+Hotovo. Výstupy v analysis/
