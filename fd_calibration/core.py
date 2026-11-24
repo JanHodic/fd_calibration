@@ -1,149 +1,140 @@
 """
-Binární Fermiho-Diracova kalibrace (Kim et al., 2021).
+Binární Fermiho-Diracova kalibrace (Kim et al., 2021) -- přesný diskrétní model.
 
-Implementuje:
-- numericky stabilní výpočet μ/N jako funkce β (Eq. 6)
-- výpočet AUC z FD parametrů (přes průměrné ranky)
-- inverzní úlohu: fit (β, μ) z (AUC, ρ, N)
+Rank-podmíněná pravděpodobnost pozitivní třídy je parametrizována jako
+    q_r = sigma(alpha - beta * r),   r = 1..N,   alpha = beta * mu,
+a parametry (beta, alpha) jsou určeny tak, aby PŘESNĚ platily obě diskrétní
+podmínky zachování:
+    (C1)  sum_r q_r       = N1                    (počet pozitivních)
+    (C2)  sum_r r * q_r   = N1 (N+1)/2 + N1 N0 (1/2 - AUC)   (průměrný rank)
+
+Poznámka: uzavřený vzorec pro mu/N z Kim et al. (jejich Eq. 6) je spojitá
+aproximace a podmínku (C1) pro konečné N nesplňuje (např. N=4, N1=2 dává
+mu=2 místo symetrického mu=2.5). Zde se proto alpha hledá numericky.
 """
 
 from __future__ import annotations
 
 import numpy as np
 from scipy.optimize import brentq
-from scipy.special import expit
+from scipy.special import expit, log_expit, logit
 
 
 # ---------------------------------------------------------------------------
-# Numericky stabilní log(sinh(x))
+# Model
 # ---------------------------------------------------------------------------
 
-def _log_sinh(x: np.ndarray) -> np.ndarray:
-    """Numericky stabilní log(sinh(x)) pro x > 0.
+def fd_prob(r: np.ndarray, beta: float, alpha: float) -> np.ndarray:
+    """q_r = sigma(alpha - beta r). Pro beta=0 je q_r = sigma(alpha) konstantní."""
+    return expit(alpha - beta * np.asarray(r, dtype=float))
 
-    Pro malé x: log(sinh(x)) ≈ log(x).
-    Pro velké x: log(sinh(x)) ≈ x - log(2).
-    """
-    x = np.asarray(x, dtype=float)
-    out = np.empty_like(x) if x.ndim else np.array(0.0)
 
-    if x.ndim == 0:
-        if x < 1e-6:
-            return np.log(max(x, 1e-300))
-        if x > 50:
-            return x - np.log(2)
-        return float(np.log(np.sinh(x)))
+def fd_logprob(r: np.ndarray, beta: float, alpha: float) -> np.ndarray:
+    """log q_r, numericky stabilní i pro velmi malé q_r."""
+    return log_expit(alpha - beta * np.asarray(r, dtype=float))
 
-    small = x < 1e-6
-    large = x > 50
-    middle = ~(small | large)
-    out[small] = np.log(np.clip(x[small], 1e-300, None))
-    out[large] = x[large] - np.log(2)
-    out[middle] = np.log(np.sinh(x[middle]))
-    return out
+
+def mu_from_alpha(beta: float, alpha: float) -> float:
+    """Chemický potenciál mu = alpha / beta (rank, kde q_r = 1/2). Pro beta=0 nedefinováno."""
+    return float(alpha / beta) if beta > 0 else float("nan")
 
 
 # ---------------------------------------------------------------------------
-# FD distribuce a parametry
+# Podmínky zachování
 # ---------------------------------------------------------------------------
 
-def fd_prob(r: np.ndarray, beta: float, mu: float) -> np.ndarray:
-    """Rank-podmíněná pravděpodobnost pozitivní třídy.
+def solve_alpha(beta: float, N: int, N1: int) -> float:
+    """Najdi alpha tak, aby sum_r q_r = N1 (podmínka C1).
 
-    P(y=1 | r) = 1 / (1 + exp(β(r - μ)))
+    Levá strana je v alpha ostře rostoucí, takže kořen je jednoznačný.
+    Pro beta=0 má uzavřené řešení alpha = logit(N1/N).
     """
-    return expit(-beta * (np.asarray(r, dtype=float) - mu))
-
-
-def mu_over_N(beta: float, rho: float, N: int) -> float:
-    """μ/N jako funkce β, ρ, N (Eq. 6 z Kim et al., 2021).
-
-    μ/N = 1/2 - (1/βN) * ln[sinh(βN(1-ρ)/2) / sinh(βNρ/2)]
-    """
-    bN = beta * N
-    if bN < 1e-10:
-        # Limit β → 0: použijeme Taylor sinh(x) ≈ x
-        # Výsledek je nedefinovaný (μ jde do nekonečna), vrátíme rozumný odhad
-        return 0.5
-    a1 = bN * (1 - rho) / 2
-    a2 = bN * rho / 2
-    log_ratio = _log_sinh(np.array(a1)) - _log_sinh(np.array(a2))
-    return 0.5 - float(log_ratio) / bN
-
-
-def auc_from_params(beta: float, mu: float, N: int, N1: int) -> float:
-    """Výpočet AUC z FD parametrů přes vztah AUC = (<r|0> - <r|1>)/N + 1/2.
-
-    <r|1> = (1/N1) * Σ r * P(1|r)
-    <r|0> = (1/N0) * Σ r * P(0|r)
-    """
+    if N1 <= 0 or N1 >= N:
+        raise ValueError(f"N1 musí být v (0, N), bylo N1={N1}, N={N}.")
+    if beta == 0.0:
+        return float(logit(N1 / N))
     r = np.arange(1, N + 1, dtype=float)
-    p1 = fd_prob(r, beta, mu)
-    p0 = 1.0 - p1
+
+    def f(a: float) -> float:
+        return float(expit(a - beta * r).sum()) - N1
+
+    lo = beta * 1.0 - 60.0   # sigma(<= -60) ~ 0  -> sum ~ 0 < N1
+    hi = beta * N + 60.0     # sigma(>= +60) ~ 1  -> sum ~ N > N1
+    return float(brentq(f, lo, hi, xtol=1e-12, rtol=1e-12, maxiter=500))
+
+
+def expected_auc(beta: float, alpha: float, N: int, N1: int) -> float:
+    """Očekávané AUC z podmínky (C2):  AUC = 1/2 + (N1(N+1)/2 - sum_r r q_r) / (N1 N0).
+
+    Platí přesně, pokud je splněna (C1); proto se volá až po solve_alpha.
+    """
     N0 = N - N1
-    if N1 == 0 or N0 == 0:
-        return 0.5
-    avg_r_1 = np.sum(r * p1) / N1
-    avg_r_0 = np.sum(r * p0) / N0
-    return float((avg_r_0 - avg_r_1) / N + 0.5)
+    r = np.arange(1, N + 1, dtype=float)
+    S = float((r * fd_prob(r, beta, alpha)).sum())
+    return 0.5 + (N1 * (N + 1) / 2.0 - S) / (N1 * N0)
 
 
 # ---------------------------------------------------------------------------
-# Inverzní úloha: fit (β, μ) z (AUC, ρ, N)
+# Inverzní úloha: (AUC, N1, N) -> (beta, alpha)
 # ---------------------------------------------------------------------------
 
 def fit_fd_binary(
     auc: float,
     N1: int,
     N: int,
-    beta_bounds: tuple[float, float] = (1e-6, 50.0),
+    tol: float = 1e-9,
+    check: bool = True,
 ) -> tuple[float, float]:
-    """Najdi (β, μ) tak, aby FD distribuce reprodukovala zadané AUC.
+    """Najdi (beta, alpha) splňující přesně obě diskrétní podmínky (C1) a (C2).
 
-    Postup:
-    1. μ je funkcí β přes Eq. 6.
-    2. β najdeme řešením rovnice auc_from_params(β, μ(β)) = auc.
+    Postup: pro dané beta vyřešíme alpha z (C1); vnější kořenové hledání
+    v beta pak vynutí (C2). Očekávané AUC je v beta rostoucí od 1/2 (beta=0).
 
     Returns
     -------
-    (beta, mu) : tuple[float, float]
+    (beta, alpha); mu = alpha / beta.
     """
     if not (0.5 <= auc <= 1.0):
         raise ValueError(f"AUC musí být v [0.5, 1.0], bylo {auc}.")
     if N1 <= 0 or N1 >= N:
         raise ValueError(f"N1 musí být v (0, N), bylo N1={N1}, N={N}.")
 
-    rho = N1 / N
+    # Náhodný klasifikátor: beta=0, q_r = rho
+    if auc <= 0.5 + 1e-9:
+        return 0.0, float(logit(N1 / N))
 
-    # Triviální případ: náhodný klasifikátor
-    if auc <= 0.5 + 1e-6:
-        return 1e-6, mu_over_N(1e-6, rho, N) * N
+    def g(beta: float) -> float:
+        return expected_auc(beta, solve_alpha(beta, N, N1), N, N1) - auc
 
-    def objective(beta: float) -> float:
-        mu_n = mu_over_N(beta, rho, N)
-        return auc_from_params(beta, mu_n * N, N, N1) - auc
+    lo = 1e-8
+    hi = 1.0
+    while g(hi) < 0.0:
+        hi *= 4.0
+        if hi > 1e6:  # AUC prakticky 1 -> skoková funkce
+            break
+    beta = float(brentq(g, lo, hi, xtol=1e-12, rtol=1e-12, maxiter=500))
+    alpha = solve_alpha(beta, N, N1)
 
-    # Najdi interval, kde objective mění znaménko
-    lo, hi = beta_bounds
-    # Pokud objective(hi) < 0, klasifikátor je tak dobrý, že potřebujeme větší β
-    # ale 50 by mělo stačit pro AUC až 0.9999
-    try:
-        beta = brentq(objective, lo, hi, xtol=1e-8)
-    except ValueError as e:
-        # Fallback: zkusíme širší interval
-        beta = brentq(objective, 1e-8, 200.0, xtol=1e-8)
-
-    mu = mu_over_N(beta, rho, N) * N
-    return beta, mu
+    if check:
+        r = np.arange(1, N + 1, dtype=float)
+        q = fd_prob(r, beta, alpha)
+        c1 = abs(q.sum() - N1)
+        c2 = abs(expected_auc(beta, alpha, N, N1) - auc)
+        if c1 > 1e-6 * N or c2 > 1e-6:
+            raise RuntimeError(
+                f"Podmínky zachování nesplněny: |sum q - N1|={c1:.2e}, |AUC diff|={c2:.2e}"
+            )
+    return beta, alpha
 
 
 # ---------------------------------------------------------------------------
 # Optimální práh
 # ---------------------------------------------------------------------------
 
-def optimal_threshold(beta: float, mu: float, rho: float, N: int) -> float:
-    """Optimální rank-práh maximalizující balanced accuracy (Eq. 9).
-
-    r* / N = μ/N + (1/βN) * ln((1-ρ)/ρ)
+def optimal_threshold(beta: float, alpha: float, rho: float) -> float:
+    """Rank-práh r* maximalizující balanced accuracy (Eq. 9 Kim et al.):
+    q_{r*} = rho  <=>  r* = (alpha - logit(rho)) / beta.
     """
-    return mu + np.log((1 - rho) / rho) / beta
+    if beta <= 0:
+        return float("nan")
+    return float((alpha - logit(rho)) / beta)

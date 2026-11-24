@@ -2,10 +2,12 @@
 
 from .core import (
     fd_prob,
-    mu_over_N,
-    auc_from_params,
+    fd_logprob,
+    solve_alpha,
+    expected_auc,
     fit_fd_binary,
     optimal_threshold,
+    mu_from_alpha,
 )
 from .multiclass import FDMulticlassCalibrator
 from .metrics import (
@@ -33,8 +35,10 @@ from .data import (
 
 __all__ = [
     "fd_prob",
-    "mu_over_N",
-    "auc_from_params",
+    "fd_logprob",
+    "solve_alpha",
+    "expected_auc",
+    "mu_from_alpha",
     "fit_fd_binary",
     "optimal_threshold",
     "FDMulticlassCalibrator",
